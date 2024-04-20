@@ -56,8 +56,8 @@ def get_args():
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--universal", type=int, default=0)
     parser.add_argument("--model", type=str, default="llama2")
-    parser.add_argument("--attack", type=str, default="autodan_hga")
-    parser.add_argument("--path", type=str, default="./results/autodan_hga/llama2_0_normal.json")
+    parser.add_argument("--attack", type=str, default="autodan_ga")
+    parser.add_argument("--path", type=str, default="./results/autodan_ga/llama2_0_normal.json")
 
     args = parser.parse_args()
     return args

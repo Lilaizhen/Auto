@@ -1,5 +1,6 @@
 import gc
 import os
+import nltk
 import numpy as np
 import torch
 import torch.nn as nn
@@ -12,7 +13,9 @@ import pandas as pd
 import json
 from tqdm import tqdm
 import random
-
+nltk.download('stopwords')
+nltk.download('punkt')
+nltk.download('wordnet')
 seed = 20
 torch.manual_seed(seed)
 np.random.seed(seed)
