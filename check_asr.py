@@ -3,7 +3,7 @@ import json
 
 def get_args():
     parser = argparse.ArgumentParser(description="Configs")
-    parser.add_argument("--path", type=str, default="./results/autodan_ga/llama2_0_normal_responses.json")
+    parser.add_argument("--path", type=str, default="./results/autodan_hga/llama2_0_normal_responses.json")
     parser.add_argument("--device", type=str, default="2", help="Specify which CUDA device to use (e.g., 0, 1, etc.)")
     args = parser.parse_args()
     return args
