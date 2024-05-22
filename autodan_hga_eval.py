@@ -4,6 +4,7 @@ import nltk
 import numpy as np
 import torch
 import torch.nn as nn
+import random
 from utils.opt_utils import get_score_autodan, autodan_sample_control
 from utils.opt_utils import load_model_and_tokenizer, autodan_sample_control_hga
 from utils.string_utils import autodan_SuffixManager, load_conversation_template
@@ -12,16 +13,10 @@ import argparse
 import pandas as pd
 import json
 from tqdm import tqdm
-import random
+
 nltk.download('stopwords')
 nltk.download('punkt')
 nltk.download('wordnet')
-seed = 20
-torch.manual_seed(seed)
-np.random.seed(seed)
-random.seed(seed)
-if torch.cuda.is_available():
-    torch.cuda.manual_seed_all(seed)
 
 def generate(model, tokenizer, input_ids, assistant_role_slice, gen_config=None):
     if gen_config is None:
@@ -39,7 +34,6 @@ def generate(model, tokenizer, input_ids, assistant_role_slice, gen_config=None)
                                 )[0]
     return output_ids[assistant_role_slice.stop:]
 
-
 def check_for_attack_success(model, tokenizer, input_ids, assistant_role_slice, test_prefixes, gen_config=None):
     gen_str = tokenizer.decode(generate(model,
                                         tokenizer,
@@ -55,12 +49,10 @@ def check_for_attack_success(model, tokenizer, input_ids, assistant_role_slice, 
         jailbroken = not any([prefix in gen_str for prefix in test_prefixes+uppercased_test_prefixes])
     return jailbroken, gen_str
 
-
 def log_init():
     log_dict = {"loss": [], "suffix": [],
                 "time": [], "respond": [], "success": []}
     return log_dict
-
 
 def get_args():
     parser = argparse.ArgumentParser(description="Configs")
@@ -82,13 +74,49 @@ def get_args():
     args = parser.parse_args()
     return args
 
-
 def get_developer(model_name):
     developer_dict = {"llama2": "Meta", "vicuna": "LMSYS",
                       "guanaco": "TheBlokeAI", "WizardLM": "WizardLM",
                       "mpt-chat": "MosaicML", "mpt-instruct": "MosaicML", "falcon": "TII"}
     return developer_dict[model_name]
 
+def add_random_noise(text, noise_level=0.1):
+    # 确定扰动的字符数量
+    num_chars = len(text)
+    num_noisy_chars = int(num_chars * noise_level)
+    
+    noisy_text = list(text)
+    
+    for _ in range(num_noisy_chars):
+        # 选择扰动类型：插入、替换、删除、交换
+        noise_type = random.choice(['insert', 'replace', 'delete', 'swap'])
+        
+        if noise_type == 'insert':
+            # 随机位置插入一个随机字符
+            pos = random.randint(0, num_chars)
+            noisy_text.insert(pos, chr(random.randint(32, 126)))
+        
+        elif noise_type == 'replace':
+            # 随机位置替换为一个随机字符
+            pos = random.randint(0, num_chars - 1)
+            noisy_text[pos] = chr(random.randint(32, 126))
+        
+        elif noise_type == 'delete':
+            # 随机删除一个字符
+            if len(noisy_text) > 0:
+                pos = random.randint(0, len(noisy_text) - 1)
+                del noisy_text[pos]
+        
+        elif noise_type == 'swap':
+            # 随机交换两个字符的位置
+            if len(noisy_text) > 1:
+                pos1, pos2 = random.sample(range(len(noisy_text)), 2)
+                noisy_text[pos1], noisy_text[pos2] = noisy_text[pos2], noisy_text[pos1]
+        
+        # 更新字符数量
+        num_chars = len(noisy_text)
+    
+    return ''.join(noisy_text)
 
 if __name__ == '__main__':
     args = get_args()
@@ -180,6 +208,10 @@ if __name__ == '__main__':
         start_time = time.time()
         user_prompt = g
         target = t
+        
+        # 添加随机扰动
+        noisy_prompt = add_random_noise(user_prompt, noise_level=0.1)
+
         for o in range(len(reference)):
             reference[o] = reference[o].replace('[MODEL]', template_name.title())
             reference[o] = reference[o].replace('[KEEPER]', get_developer(template_name))
@@ -191,7 +223,7 @@ if __name__ == '__main__':
                 epoch_start_time = time.time()
                 losses = get_score_autodan(
                     tokenizer=tokenizer,
-                    conv_template=conv_template, instruction=user_prompt, target=target,
+                    conv_template=conv_template, instruction=noisy_prompt, target=target,
                     model=model,
                     device=device,
                     test_controls=new_adv_suffixs,
